@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Notary</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Star Notary</h1>
+
+        <div class="row">
+            <label class="bold">Star Name:</label>
+            <input id="star-name" required>
+        </div>
+        <div class="row">
+            <label class="bold">Star story:</label>
+            <input id="star-story" required>
+        </div>
+        <div class="row">
+            <label class="bold">Star Ra:</label>
+            <input id="star-ra" required>
+        </div>
+        <div class="row">
+            <label class="bold">Star Dec:</label>
+            <input id="star-dec" required>
+        </div>
+        <div class="row">
+            <label class="bold">Star Mag:</label>
+            <input id="star-mag" required>
+        </div>
+        <div class="row">
+            <label class="bold">TokenId:</label>
+            <input id="token-id" required>
+        </div>
+
+        <button id="create-button" onclick="createButtonClicked()">create Star</button>
+        <div class="row">
+            <label id="result"></label>
+        </div>
+
+        <div class="row">
+            <label class="bold">Token ID:</label>
+            <input id="star-token">
+        </div>
+        <button id="search-button" onclick="searchStarById()">Search Star Data</button>
+        <div id="star-data">
+            <div class="row">
+                <label class="bold">Star Data:</label>
+                <label id="result-star-data"></label>
+            </div>
+        </div>
+    </div>
+
+    <script>    
+        if(typeof web3 != 'undefined') { 
+            web3 = new Web3(web3.currentProvider) // what Metamask injected 
+        } else {
+            // Instantiate and set Ganache as your provider
+            //web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+            web3 = new Web3(new Web3.providers.HttpProvider("https://rinkeby.infura.io/v3/6072dc738d4948858d6ace941f04354c"));
+        }
+
+        // The default (top) wallet account from a list of test accounts 
+        web3.eth.defaultAccount = web3.eth.accounts[0];
+        console.log("web3.eth.defaultAccount: " + web3.eth.defaultAccount);
+
+        // The interface definition for your smart contract (the ABI) 
+        // "smart_contracts/build/contracts/StarNotary.json"
+        var starNotary = null;
+        $.getJSON("smart_contracts/build/contracts/StarNotary.json", function(json){
+            let abi = json.abi; 
+            var StarNotary = web3.eth.contract(abi);
+
+            // Grab the contract at specified deployed address with the interface defined by the ABI
+            //var starNotary = StarNotary.at('0xc5ebd6156fe6cd980d72fdf857637c5a309679f9');
+            starNotary = StarNotary.at('0x923696983205e51ddc3197d58b7caf98eec6f1c3');
+        });
+      
+        // Enable create button being clicked
+        function createButtonClicked() { 
+            web3.eth.getAccounts(function(error, accounts) { 
+                if (error) { 
+                    console.log(error)
+                    return
+                }
+                
+                var name = $('#star-name').val();
+                var story = $('#star-story').val();
+                var ra = $('#star-ra').val();
+                var dec = $('#star-dec').val();
+                var mag = $('#star-mag').val();
+                var tokenId =  $('#token-id').val();
+                var resultMessage = $('#result');
+                var account = accounts[0];
+                resultMessage.html("creating star");
+                
+                console.log(name, story, ra, dec, mag, tokenId, account)
+                starNotary.createStar.sendTransaction(name, story, ra, dec, mag, tokenId, {from: account, gas: 3000000}, function (error, result) {
+                    if (!error) {
+                        var starcreateedEvent = starNotary.Transfer();
+                        starcreateedEvent.watch(function(error, result) {
+                            if (!error) {
+                                resultMessage.html('Create star successfully!');
+                            } else {
+                                resultMessage.html('There was an error: ' + error);
+                                console.log('There was an error: ' + error);
+                            }
+                        });
+                    } else { 
+                        console.log(error);
+                    }
+                });
+                
+            })
+        }
+
+        function searchStarById() {
+            var tokenId = $('#star-token').val();
+            if (!tokenId && tokenId != 0) return;
+            tokenId = parseInt(tokenId)
+
+            web3.eth.getAccounts(function(error, accounts) {
+                if (error) { 
+                    console.log(error);
+                    return;
+                }
+
+                var resultStarData = $('#result-star-data');
+                var account = accounts[0];
+
+                console.log(starNotary);
+                starNotary.tokenIdToStarInfo(tokenId, {from: account}, function (error, r) {
+                    if (!error) {
+                        console.log(r);
+                        result = "name:" + r[0] +
+                            "<br /> story:" +r[1] + 
+                            "<br /> ra:" + r[2] + 
+                            "<br /> dec:" + r[3] + 
+                            "<br /> mag:" + r[4];
+                        resultStarData.html(result);
+                    } else {
+                        resultStarData.html(error.message);
+                        console.log("Error: " + error.message);
+                    }
+                })
+            })
+        }
+    </script>
+</body>
+
+</html>
